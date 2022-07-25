@@ -60,6 +60,10 @@ SKIP_SNIPPET_EXT = {  # File extensions to ignore snippets for
                 ".pdf", ".min.js", ".mf", ".sum"
 }
 
+CRC8_MAXIM_DOW_TABLE_SIZE = 0x100
+CRC8_MAXIM_DOW_POLYNOMIAL = 0x8C # 0x31 reflected
+CRC8_MAXIM_DOW_INITIAL = 0x00 # 0x00 reflected
+CRC8_MAXIM_DOW_FINAL = 0x00 # 0x00 reflected
 
 class Winnowing(ScanossBase):
     """
@@ -105,7 +109,7 @@ class Winnowing(ScanossBase):
     """
 
     def __init__(self, size_limit: bool = True, debug: bool = False, trace: bool = False, quiet: bool = False,
-                 skip_snippets: bool = False, post_size: int = 64, all_extensions: bool = False
+                 skip_snippets: bool = False, post_size: int = 64, all_extensions: bool = False, hpsm: bool = False
                  ):
         """
         Instantiate Winnowing class
@@ -119,6 +123,9 @@ class Winnowing(ScanossBase):
         self.skip_snippets = skip_snippets
         self.max_post_size = post_size * 1024 if post_size > 0 else MAX_POST_SIZE
         self.all_extensions = all_extensions
+        self.hpsm = hpsm
+        if hpsm:
+            self.crc8_MAXIM_DOW_Table = []
 
     @staticmethod
     def __normalize(byte):
@@ -224,6 +231,11 @@ class Winnowing(ScanossBase):
         # Print file line
         content_length = len(contents)
         wfp = 'file={0},{1},{2}\n'.format(file_md5, content_length, file)
+        
+        if self.hpsm:
+            hpsm = self.calc_hpsm(contents)
+            wfp += 'hpsm={0}\n'.format(hpsm)
+
         # We don't process snippets for binaries, or other uninteresting files, or if we're requested to skip
         if bin_file or self.skip_snippets or self.__skip_snippets(file, contents.decode('utf-8', 'ignore')):
             return wfp
@@ -262,7 +274,7 @@ class Winnowing(ScanossBase):
                             if last_line != line:
                                 if output:
                                     if self.size_limit and \
-                                            (len(wfp.encode("utf-8")) + len(output.encode("utf-8"))) > self.max_post_size:
+                                            (len(wfp.encode("utf-8")) + len(output.encode("utf-8")) ) > self.max_post_size:
                                         self.print_debug(f'Truncating WFP (64k limit) for: {file}')
                                         output = ''
                                         break               # Stop collecting snippets as it's over 64k
@@ -282,6 +294,61 @@ class Winnowing(ScanossBase):
 
         return wfp
 
+    def calc_hpsm(self, content):
+        list_normalized = []    #Array of numbers
+        crc_lines = []  #Array of numbers that represent the crc8_maxim for each line of the file
+        last_line = 0
+        self.crc8_MAXIM_DOW_GenerateTable()
+        for i, byte in enumerate(content):
+            c = byte
+            if c == ASCII_LF:   #When there is a new line
+                if len(list_normalized): 
+                    crc_lines.append(self.crc8_MAXIM_DOW_Buffer(list_normalized))
+                    list_normalized=[]
+                elif last_line+1 == i:
+                    crc_lines.append(0xFF)
+                elif i-last_line  > 1:
+                    crc_lines.append(0x00)
+                last_line = i
+            else:
+                c_normalized = self.__normalize(c)
+                if c_normalized != 0:
+                    list_normalized.append(c_normalized)
+        crc_lines_hex = []
+        for x in crc_lines:
+            crc_lines_hex.append(hex(x))
+       # print (crc_lines_hex)
+        hpsm = ''.join('{:02x}'.format(x) for x in crc_lines)
+        #print(crc_lines)
+        return hpsm # hex(hpsm).lstrip("0x")
+
+
+    def crc8_MAXIM_DOW_GenerateTable(self):
+        for i in range(CRC8_MAXIM_DOW_TABLE_SIZE):
+            self.crc8_MAXIM_DOW_Table.append(self.crc8_MAXIM_DOW_ByteNoTable(0, i))
+        
+    def crc8_MAXIM_DOW_ByteNoTable(self, crc, byte):
+        crc ^= byte
+        for count in range(8):
+            isSet = crc & 0x01
+            crc >>= 1
+            if isSet:
+                crc ^= CRC8_MAXIM_DOW_POLYNOMIAL
+        return crc
+
+    def crc8_MAXIM_DOW_Byte(self, crc, byte):
+        index = byte ^ crc
+        return self.crc8_MAXIM_DOW_Table[ index ] ^ ( crc >> 8 )
+
+
+    def crc8_MAXIM_DOW_Buffer(self, buffer):
+        crc = CRC8_MAXIM_DOW_INITIAL
+        for index in range(len(buffer)):
+            crc = self.crc8_MAXIM_DOW_Byte(crc, buffer[index])
+        crc ^= CRC8_MAXIM_DOW_FINAL
+        return crc
+    
+    
 #
 # End of Winnowing Class
 #
