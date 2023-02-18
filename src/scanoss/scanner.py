@@ -32,7 +32,6 @@ from progress.spinner import Spinner
 from pypac.parser import PACFile
 
 from .scanossapi import ScanossApi
-from .winnowing import Winnowing
 from .threadedwinnowing import ThreadedWinnowing
 from .cyclonedx import CycloneDx
 from .spdxlite import SpdxLite
@@ -43,6 +42,10 @@ from .threadeddependencies import ThreadedDependencies
 from .scanossgrpc import ScanossGrpc
 from .scantype import ScanType
 from .scanossbase import ScanossBase
+try:
+    from scanoss_winnowing.winnowing import Winnowing
+except ModuleNotFoundError or ImportError:
+    from .winnowing import Winnowing
 
 from . import __version__
 

@@ -33,7 +33,10 @@ from progress.spinner import Spinner
 from progress.bar import Bar
 
 from .scanossbase import ScanossBase
-from .winnowing import Winnowing
+try:
+    from scanoss_winnowing.winnowing import Winnowing
+except ModuleNotFoundError or ImportError:
+    from .winnowing import Winnowing
 
 WFP_FILE_START = "file="
 MAX_ALLOWED_THREADS = int(os.environ.get("SCANOSS_MAX_ALLOWED_THREADS")) if os.environ.get(
