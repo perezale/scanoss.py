@@ -30,6 +30,7 @@ import time
 from typing import Dict, List
 from dataclasses import dataclass
 from progress.spinner import Spinner
+from progress.bar import Bar
 
 from .scanossbase import ScanossBase
 from .winnowing import Winnowing
@@ -49,8 +50,9 @@ class ThreadedWinnowing(ScanossBase):
     inputs: queue.Queue = queue.Queue()
     output: queue.Queue = queue.Queue()
     spinner: Spinner = None
+    bar: Bar = None
 
-    def __init__(self, debug: bool = False, trace: bool = False, quiet: bool = False, nb_threads: int = 10,
+    def __init__(self, debug: bool = False, trace: bool = False, quiet: bool = False, nb_threads: int = 5,
                  winnowing: Winnowing = None, scan_dir: str = None) -> None:
         """
         Initialise the ThreadedWinnowing class
@@ -65,6 +67,7 @@ class ThreadedWinnowing(ScanossBase):
         self.scan_dir = scan_dir
         self.scan_dir_len = len(scan_dir) if scan_dir.endswith(os.path.sep) else len(scan_dir) + 1
         self._isatty = sys.stderr.isatty()
+        self._bar_count = 0
         self._errors = False
         self._lock = threading.Lock()
         self._stop_event = threading.Event()  # Control when winnowing threads should terminate
@@ -73,6 +76,42 @@ class ThreadedWinnowing(ScanossBase):
         if nb_threads > MAX_ALLOWED_THREADS:
             self.print_msg(f'Warning: Requested threads too large: {nb_threads}. Reducing to {MAX_ALLOWED_THREADS}')
             self.nb_threads = MAX_ALLOWED_THREADS
+
+    def create_bar(self, file_count: int):
+        if not self.quiet and self._isatty and not self.bar:
+            self.bar = Bar('Winnowing', max=file_count)
+            self.bar.next(self._bar_count)
+
+    def complete_bar(self):
+        if self.bar:
+            self.bar.finish()
+
+    def set_bar(self, bar: Bar) -> None:
+        """
+        Set the Progress Bar to display progress while winnowing
+        :param bar: Progress Bar object
+        """
+        self.bar = bar
+
+    def update_bar(self, amount: int = 0, create: bool = False, file_count: int = 0) -> None:
+        """
+        Update the Progress Bar progress
+        :param amount: amount of progress to update
+        :param create: create the bar if requested
+        :param file_count: file count
+        """
+        try:
+            self._lock.acquire()
+            try:
+                if create and not self.bar:
+                    self.create_bar(file_count)
+                elif self.bar:
+                    self.bar.next(amount)
+                self._bar_count += amount
+            finally:
+                self._lock.release()
+        except Exception as e:
+            self.print_debug(f'Warning: Update status bar lock failed: {e}. Ignoring.')
 
     def create_spinner(self):
         if not self.quiet and self._isatty and not self.spinner:
@@ -169,6 +208,7 @@ class ThreadedWinnowing(ScanossBase):
         except Exception as e:
             self.print_stderr(f'WARNING: Issue encountered terminating winnowing worker threads: {e}')
             self._errors = True
+        self.complete_bar()
         return False if self._errors else True
 
     def worker_post(self) -> None:
@@ -189,7 +229,7 @@ class ThreadedWinnowing(ScanossBase):
                     wfps = self.winnowing.wfp_for_file(file, self.strip_path(self.scan_dir, self.scan_dir_len, file))
                     if wfps:
                         self.output.put(wfps)  # Store the output response to later collection
-                        self.update_spinner()
+                        self.update_bar(1)
                     self.inputs.task_done()
                     self.print_trace(f'Request complete ({current_thread}).')
                 except queue.Empty:

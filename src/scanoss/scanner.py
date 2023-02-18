@@ -33,6 +33,7 @@ from pypac.parser import PACFile
 
 from .scanossapi import ScanossApi
 from .winnowing import Winnowing
+from .threadedwinnowing import ThreadedWinnowing
 from .cyclonedx import CycloneDx
 from .spdxlite import SpdxLite
 from .csvoutput import CsvOutput
@@ -181,23 +182,6 @@ class Scanner(ScanossBase):
             if not ignore:
                 dir_list.append(d)
         return dir_list
-
-    @staticmethod
-    def __strip_dir(scan_dir: str, length: int, path: str) -> str:
-        """
-        Strip the leading string from the specified path
-        Parameters
-        ----------
-            scan_dir: str
-                Root path
-            length: int
-                length of the root path string
-            path: str
-                Path to strip
-        """
-        if length > 0 and path.startswith(scan_dir):
-            path = path[length:]
-        return path
 
     @staticmethod
     def __count_files_in_wfp_file(wfp_file: str):
@@ -375,7 +359,8 @@ class Scanner(ScanossBase):
                     self.print_trace(f'Fingerprinting {path}...')
                     if spinner:
                         spinner.next()
-                    wfp = self.winnowing.wfp_for_file(path, Scanner.__strip_dir(scan_dir, scan_dir_len, path))
+                    # wfp = self.winnowing.wfp_for_file(path, __strip_dir(scan_dir_len, path))
+                    wfp = self.winnowing.wfp_for_file(path, self.strip_path(scan_dir, scan_dir_len, path))
                     if wfp is None or wfp == '':
                         self.print_stderr(f'Warning: No WFP returned for {path}')
                     wfp_list.append(wfp)
@@ -798,6 +783,10 @@ class Scanner(ScanossBase):
             raise Exception(f"ERROR: Specified folder does not exist or is not a folder: {scan_dir}")
         wfps = ''
         scan_dir_len = len(scan_dir) if scan_dir.endswith(os.path.sep) else len(scan_dir)+1
+
+        threaded_win = ThreadedWinnowing(debug=self.debug, trace=self.trace, quiet=self.quiet, scan_dir=scan_dir,
+                                         winnowing=self.winnowing, nb_threads=self.nb_threads)
+
         self.print_msg(f'Searching {scan_dir} for files to fingerprint...')
         for root, dirs, files in os.walk(scan_dir):
             dirs[:] = self.__filter_dirs(dirs)                             # Strip out unwanted directories
@@ -811,15 +800,21 @@ class Scanner(ScanossBase):
                 except Exception as e:
                     self.print_trace(f'Ignoring missing symlink file: {file} ({e})')  # Can fail if there is a broken symlink
                 if f_size > 0:            # Ignore empty files
-                    self.print_debug(f'Fingerprinting {path}...')
-                    wfps += self.winnowing.wfp_for_file(path, Scanner.__strip_dir(scan_dir, scan_dir_len, path))
+                    self.print_debug(f'Queuing {path}...')
+                    threaded_win.queue_add(path)
+                    # wfps += self.winnowing.wfp_for_file(path, Scanner.__strip_dir(scan_dir, scan_dir_len, path))
+        threaded_win.create_bar(threaded_win.get_queue_size())
+        threaded_win.run(True)
+        wfps = threaded_win.responses
         if wfps:
             if wfp_file:
                 self.print_stderr(f'Writing fingerprints to {wfp_file}')
                 with open(wfp_file, 'w') as f:
-                    f.write(wfps)
+                    for wfp in wfps:
+                        f.write(wfp)
             else:
-                print(wfps)
+                for wfp in wfps:
+                    print(wfp.strip())
         else:
             Scanner.print_stderr(f'Warning: No files found to fingerprint in folder: {scan_dir}')
 

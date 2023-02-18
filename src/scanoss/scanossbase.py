@@ -68,3 +68,21 @@ class ScanossBase:
         """
         if self.trace:
             self.print_stderr(*args, **kwargs)
+
+    @staticmethod
+    def strip_path(root_path: str, length: int, path: str) -> str:
+        """
+        Strip the leading string from the specified path
+        Parameters
+        ----------
+            root_path: str
+                Root path
+            length: int
+                length of the root path string
+            path: str
+                Path to strip
+        """
+        if length > 0 and path.startswith(root_path):
+            path = path[length:]
+        return path
+

@@ -172,14 +172,15 @@ class Winnowing(ScanossBase):
         if len(prefix) > 0 and (prefix[0] == "{" or prefix[0] == "["):  # Ignore json
             self.print_trace(f'Skipping snippets as the file appears to be JSON: {file}')
             return True
-        if prefix.startswith("<?xml") or prefix.startswith("<html") or prefix.startswith("<ac3d") or prefix.startswith(
-                "<!doc"):
+        if prefix.startswith("<?xml") or prefix.startswith("<html") or prefix.startswith("<ac3d") or \
+                prefix.startswith("<!doc"):
             self.print_trace(f'Skipping snippets as the file appears to be xml/html/binary: {file}')
             return True  # Ignore xml & html & ac3d
-        index = src.index('\n') if '\n' in src else (src_len - 1)  # TODO still necessary if we have a binary check?
-        if len(src[0:index]) > MAX_LONG_LINE_CHARS:  # Ignore long lines
-            self.print_trace(f'Skipping snippets due to file line being too long: {file} - {MAX_LONG_LINE_CHARS}')
-            return True
+
+        # index = src.index('\n') if '\n' in src else (src_len - 1)  # TODO still necessary if we have a binary check?
+        # if len(src[0:index]) > MAX_LONG_LINE_CHARS:  # Ignore long lines
+        #     self.print_trace(f'Skipping snippets due to file line being too long: {file} - {MAX_LONG_LINE_CHARS}')
+        #     return True
         return False
 
     def wfp_for_file(self, path: str, file: str) -> str:
@@ -234,7 +235,8 @@ class Winnowing(ScanossBase):
 
         wfp = 'file={0},{1},{2}\n'.format(file_md5, content_length, wfp_filename)
         # We don't process snippets for binaries, or other uninteresting files, or if we're requested to skip
-        if bin_file or self.skip_snippets or self.__skip_snippets(file, contents.decode('utf-8', 'ignore')):
+        if bin_file or self.skip_snippets or\
+                (not self.all_extensions and self.__skip_snippets(file, contents.decode('utf-8', 'ignore'))):
             return wfp
         # Initialize variables
         gram = ''

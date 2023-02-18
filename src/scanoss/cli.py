@@ -118,6 +118,12 @@ def setup_args() -> None:
     p_wfp.add_argument('--output', '-o', type=str, help='Output result file name (optional - default stdout).')
     p_wfp.add_argument('--obfuscate', action='store_true', help='Obfuscate fingerprints')
     p_wfp.add_argument('--skip-snippets', '-S', action='store_true', help='Skip the generation of snippets')
+    p_wfp.add_argument('--all-extensions', action='store_true', help='Fingerprint all file extensions')
+    p_wfp.add_argument('--all-folders', action='store_true', help='Fingerprint all folders')
+    p_wfp.add_argument('--all-hidden', action='store_true', help='Fingerprint all hidden files/folders')
+    p_wfp.add_argument('--threads', '-T', type=int, default=5,
+                        help='Number of threads to use while winnowing (optional - default 5)'
+                        )
 
     # Sub-command: dependency
     p_dep = subparsers.add_parser('dependencies', aliases=['dp', 'dep'],
@@ -293,7 +299,9 @@ def wfp(parser, args):
         open(scan_output, 'w').close()
 
     scan_options = 0 if args.skip_snippets else ScanType.SCAN_SNIPPETS.value  # Skip snippet generation or not
-    scanner = Scanner(debug=args.debug, quiet=args.quiet, obfuscate=args.obfuscate, scan_options=scan_options)
+    scanner = Scanner(debug=args.debug, quiet=args.quiet, trace=args.trace, obfuscate=args.obfuscate,
+                      scan_options=scan_options, all_extensions=args.all_extensions, all_folders=args.all_folders,
+                      hidden_files_folders=args.all_hidden, nb_threads=args.threads)
 
     if not os.path.exists(args.scan_dir):
         print_stderr(f'Error: File or folder specified does not exist: {args.scan_dir}.')
