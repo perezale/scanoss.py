@@ -13,8 +13,6 @@ on:
 jobs:
   version-tagging:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -35,6 +33,7 @@ jobs:
         id: taggerApply
         env:
           GH_TOKEN: ${{ secrets.GH_TAG_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_TAG_TOKEN }}
         run: |
           echo "Applying tag ${{env.package_app_version}} ..."
           git tag "${{env.package_app_version}}"
