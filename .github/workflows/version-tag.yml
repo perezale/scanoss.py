@@ -13,9 +13,6 @@ on:
 jobs:
   version-tagging:
     runs-on: ubuntu-latest
-    permissions: 
-      actions: write
-      contents: write 
     steps:
       - uses: actions/checkout@v4
         with:
@@ -27,8 +24,6 @@ jobs:
           python-version: '3.10.x'
       - name: Determine Tag
         id: taggerVersion
-        env:
-         GH_TOKEN: ${{ secrets.GH_TAG_TOKEN }}
         run: |
           app_version=$(tools/get_next_version.sh)
           echo "New Proposed tag: $app_version"
