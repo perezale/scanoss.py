@@ -25,7 +25,7 @@ import json
 import os
 import sys
 import datetime
-import importlib_resources
+import importlib.resources as importlib_resources
 
 from progress.bar import Bar
 from progress.spinner import Spinner
