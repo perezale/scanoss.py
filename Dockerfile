@@ -33,8 +33,8 @@ RUN tar -xvzf /install/v5.39.210212.tar.gz -C /install \
     && pip3 install --user `ls /install/typecode_libmagic_from_sources*/dist/*.whl`
 
 # Remove license data references as they are not required for dependency scanning (to save space)
-RUN rm -rf /root/.local/lib/python3.10/site-packages/licensedcode/data/rules /root/.local/lib/python3.10/site-packages/licensedcode/data/cache
-RUN mkdir  /root/.local/lib/python3.10/site-packages/licensedcode/data/rules /root/.local/lib/python3.10/site-packages/licensedcode/data/cache
+RUN rm -rf /root/.local/lib/python3.12/site-packages/licensedcode/data/rules /root/.local/lib/python3.12/site-packages/licensedcode/data/cache
+RUN mkdir  /root/.local/lib/python3.12/site-packages/licensedcode/data/rules /root/.local/lib/python3.12/site-packages/licensedcode/data/cache
 
 FROM base
 
