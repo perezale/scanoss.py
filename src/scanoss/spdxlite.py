@@ -28,7 +28,7 @@ import hashlib
 import datetime
 import getpass
 import re
-import importlib_resources
+import importlib.resources as importlib_resources
 
 from . import __version__
 
