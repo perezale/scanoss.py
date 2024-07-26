@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM python:3.12-slim-buster as base
+FROM --platform=$BUILDPLATFORM python:3.12-slim-bullseye as base
 
 LABEL maintainer="SCANOSS <infra@scanoss.com>"
 LABEL org.opencontainers.image.source=https://github.com/scanoss/scanoss.py
